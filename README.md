@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ♟ ChessMate
 
-## Getting Started
+**Play. Learn. Dominate.**
 
-First, run the development server:
+A modern chess platform built to stand out — not just another chess board.
+
+## What it does
+
+- **Play vs AI** — powered by Stockfish 18, adjustable difficulty (Easy → Master)
+- **Local 2-player** — full rules: castling, en passant, promotion, check/checkmate/draw
+- **Multiplayer** — play with a friend via shareable room link (Supabase Realtime, no account needed)
+- **AI Coach** — post-game move analysis highlighting mistakes and great plays
+- **Leaderboard** — global rankings filterable by city (e.g. top players in Almaty)
+- **Auth** — sign up to save progress and appear on the leaderboard
+- **Upgrade to Pro** — monetization-ready CTA (Stripe-ready)
+
+## Who it's for
+
+Chess players of all levels who want more than just a board — coaching, competition, and community in one place.
+
+## Why it's valuable
+
+Combines AI opponents, real-time multiplayer, move coaching, and social ranking — all in a clean, mobile-friendly UI that runs instantly in the browser. A ready prototype for a real chess SaaS.
+
+## Tech stack
+
+- **Next.js 16** + TypeScript + Tailwind CSS
+- **chess.js** — full chess rules engine
+- **react-chessboard** — drag & drop board UI
+- **Stockfish 18** — world's strongest open-source chess engine (runs as Web Worker)
+- **Supabase** — auth, PostgreSQL, Realtime channels for multiplayer
+
+## Setup
+
+```bash
+npm install
+```
+
+Create `.env.local`:
+```
+NEXT_PUBLIC_SUPABASE_URL=your_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+```
+
+Run `supabase-setup.sql` in your Supabase SQL Editor, then:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
