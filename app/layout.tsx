@@ -3,7 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "ChessMate — Play. Learn. Dominate.",
+  title: "ChessKZ — Play. Compete. Improve.",
   description: "Modern chess platform with AI opponent, multiplayer, and coaching",
 };
 

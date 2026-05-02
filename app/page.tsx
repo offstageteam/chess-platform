@@ -45,23 +45,6 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-gray-900 flex flex-col text-white">
 
-      {/* ── Nav ── */}
-      <nav className="flex items-center justify-between px-6 py-4 max-w-5xl mx-auto w-full">
-        <span className="text-xl font-extrabold tracking-tight">♟ ChessKZ</span>
-        <div className="flex items-center gap-3">
-          <Link href="/leaderboard" className="text-gray-400 hover:text-white text-sm transition-colors">Leaderboard</Link>
-          {user ? (
-            <Link href="/game" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-colors">
-              Play Now
-            </Link>
-          ) : (
-            <button onClick={() => setShowAuth(true)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-colors">
-              Sign In
-            </button>
-          )}
-        </div>
-      </nav>
-
       {/* ── Hero ── */}
       <section className="flex flex-col items-center justify-center text-center px-4 pt-16 pb-20">
         <div className="inline-flex items-center gap-2 bg-indigo-950 border border-indigo-700 text-indigo-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
