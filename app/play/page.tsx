@@ -35,11 +35,10 @@ function MultiplayerGame() {
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [myColor, setMyColor] = useState<Color>('white');
-  const [pickedColor, setPickedColor] = useState<Color>('white'); // for create screen
+  const [pickedColor, setPickedColor] = useState<Color>('white');
   const [room, setRoom] = useState<Room | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Game state
   const [game, setGame] = useState(new Chess());
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [gameOver, setGameOver] = useState(false);
@@ -51,37 +50,26 @@ function MultiplayerGame() {
   const myColorRef = useRef<Color>('white');
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
-  const getGameStatus = (g: Chess, color: Color) => {
+  const getGameStatus = useCallback((g: Chess, color: Color) => {
     if (g.isCheckmate()) return `Checkmate — ${g.turn() === 'w' ? 'Black' : 'White'} wins!`;
     if (g.isDraw()) return 'Draw!';
     if (g.isCheck()) return `${g.turn() === 'w' ? 'White' : 'Black'} is in check!`;
     const myTurn = (g.turn() === 'w' && color === 'white') || (g.turn() === 'b' && color === 'black');
     return myTurn ? '🟢 Your turn' : "⏳ Opponent's turn";
-  };
-
-  // Poll room state while waiting
-  const startPolling = useCallback((id: string) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
-      const { data } = await supabase.from('rooms').select('*').eq('id', id).single();
-      if (!data) return;
-      setRoom(data);
-      if (data.status === 'playing') {
-        if (pollRef.current) clearInterval(pollRef.current);
-        setPhase('playing');
-      }
-    }, 2000);
   }, []);
 
-  // Start realtime channel for moves
+  // Sets up the realtime broadcast channel for move exchange
   const startGame = useCallback((id: string, color: Color) => {
     myColorRef.current = color;
     setMyColor(color);
     setPhase('playing');
-    if (pollRef.current) clearInterval(pollRef.current);
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
 
-    const channel = supabase.channel(`chess-moves-${id}`);
+    const channel = supabase.channel(`chess-moves-${id}`, {
+      config: { broadcast: { self: false } }, // don't receive own moves back
+    });
     channelRef.current = channel;
+
     channel
       .on('broadcast', { event: 'move' }, ({ payload }) => {
         setGame(prev => {
@@ -90,14 +78,32 @@ function MultiplayerGame() {
             const move = g.move({ from: payload.from, to: payload.to, promotion: payload.promotion ?? 'q' });
             if (move) {
               setMoveHistory(h => [...h, move.san]);
-              if (g.isGameOver()) { setGameOver(true); setGameResult(getGameStatus(g, myColorRef.current)); }
+              if (g.isGameOver()) {
+                setGameOver(true);
+                setGameResult(getGameStatus(g, myColorRef.current));
+              }
             }
-          } catch { /* ignore */ }
+          } catch { /* ignore invalid */ }
           return g;
         });
       })
       .subscribe();
-  }, []);
+  }, [getGameStatus]);
+
+  // Polls every 2s for opponent joining — calls startGame when room goes 'playing'
+  const startPolling = useCallback((id: string, color: Color) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      const { data } = await supabase.from('rooms').select('*').eq('id', id).single();
+      if (!data) return;
+      setRoom(data);
+      if (data.status === 'playing') {
+        clearInterval(pollRef.current!);
+        pollRef.current = null;
+        startGame(id, color); // critical: passes color + sets up channel
+      }
+    }, 2000);
+  }, [startGame]);
 
   useEffect(() => {
     if (!roomId) { setPhase('create'); return; }
@@ -106,33 +112,25 @@ function MultiplayerGame() {
       const playerId = getPlayerId(roomId!);
       const { data: roomData } = await supabase.from('rooms').select('*').eq('id', roomId).single();
 
-      if (!roomData) {
-        // Room doesn't exist — treat as stale link
-        setPhase('create');
-        return;
-      }
-
+      if (!roomData) { setPhase('create'); return; }
       setRoom(roomData);
 
-      // I'm the white player
       if (roomData.white_player === playerId) {
         const color: Color = 'white';
-        if (roomData.status === 'playing') { startGame(roomId!, color); }
-        else { setMyColor(color); setPhase('waiting'); startPolling(roomId!); }
+        if (roomData.status === 'playing') startGame(roomId!, color);
+        else { setMyColor(color); setPhase('waiting'); startPolling(roomId!, color); }
         return;
       }
 
-      // I'm the black player (already joined before)
       if (roomData.black_player === playerId) {
         const color: Color = 'black';
-        if (roomData.status === 'playing') { startGame(roomId!, color); }
-        else { setMyColor(color); setPhase('waiting'); startPolling(roomId!); }
+        if (roomData.status === 'playing') startGame(roomId!, color);
+        else { setMyColor(color); setPhase('waiting'); startPolling(roomId!, color); }
         return;
       }
 
-      // I'm a new joiner
+      // New joiner
       if (roomData.status === 'waiting') {
-        // Show join screen — player picks color (only available one shown)
         const availableColor: Color = !roomData.white_player ? 'white' : 'black';
         setMyColor(availableColor);
         setPhase('join');
@@ -146,9 +144,9 @@ function MultiplayerGame() {
       if (pollRef.current) clearInterval(pollRef.current);
       channelRef.current?.unsubscribe();
     };
-  }, [roomId, startPolling, startGame]);
+  }, [roomId, startGame, startPolling]);
 
-  // ── Create room ─────────────────────────────────────────────────────────────
+  // ── Create room ──────────────────────────────────────────────────────────────
   async function createRoom() {
     const code = Math.random().toString(36).slice(2, 8).toUpperCase();
     const playerId = getPlayerId(code);
@@ -170,30 +168,34 @@ function MultiplayerGame() {
     startGame(roomId, myColor);
   }
 
-  // ── In-game move handling ─────────────────────────────────────────────────────
-  function sendMove(from: string, to: string, promotion = 'q') {
-    channelRef.current?.send({ type: 'broadcast', event: 'move', payload: { from, to, promotion } });
+  // ── Move handling ────────────────────────────────────────────────────────────
+  function sendMove(from: string, to: string) {
+    channelRef.current?.send({ type: 'broadcast', event: 'move', payload: { from, to, promotion: 'q' } });
   }
 
   function isMyTurn(g: Chess) {
     return (g.turn() === 'w' && myColor === 'white') || (g.turn() === 'b' && myColor === 'black');
   }
 
+  function applyLocalMove(from: string, to: string): boolean {
+    if (!isMyTurn(game) || gameOver) return false;
+    const g = new Chess(game.fen());
+    try {
+      const move = g.move({ from: from as Square, to: to as Square, promotion: 'q' });
+      if (!move) return false;
+      sendMove(from, to);
+      setGame(g);
+      setMoveHistory(h => [...h, move.san]);
+      setSelectedSquare(null); setLegalMoves({});
+      if (g.isGameOver()) { setGameOver(true); setGameResult(getGameStatus(g, myColor)); }
+      return true;
+    } catch { return false; }
+  }
+
   function onSquareClick({ square }: ClickArgs) {
     if (!isMyTurn(game) || gameOver) return;
     if (selectedSquare && selectedSquare !== square) {
-      const g = new Chess(game.fen());
-      try {
-        const move = g.move({ from: selectedSquare as Square, to: square as Square, promotion: 'q' });
-        if (move) {
-          sendMove(selectedSquare, square);
-          setGame(g);
-          setMoveHistory(h => [...h, move.san]);
-          setSelectedSquare(null); setLegalMoves({});
-          if (g.isGameOver()) { setGameOver(true); setGameResult(getGameStatus(g, myColor)); }
-          return;
-        }
-      } catch { /* fall through */ }
+      if (applyLocalMove(selectedSquare, square)) return;
     }
     const piece = game.get(square as Square);
     const myPieceColor = myColor === 'white' ? 'w' : 'b';
@@ -207,18 +209,8 @@ function MultiplayerGame() {
   }
 
   function onDrop({ sourceSquare, targetSquare }: DropArgs) {
-    if (!targetSquare || !isMyTurn(game) || gameOver) return false;
-    const g = new Chess(game.fen());
-    try {
-      const move = g.move({ from: sourceSquare as Square, to: targetSquare as Square, promotion: 'q' });
-      if (!move) return false;
-      sendMove(sourceSquare, targetSquare);
-      setGame(g);
-      setMoveHistory(h => [...h, move.san]);
-      setSelectedSquare(null); setLegalMoves({});
-      if (g.isGameOver()) { setGameOver(true); setGameResult(getGameStatus(g, myColor)); }
-      return true;
-    } catch { return false; }
+    if (!targetSquare) return false;
+    return applyLocalMove(sourceSquare, targetSquare);
   }
 
   function copyLink() {
@@ -228,73 +220,57 @@ function MultiplayerGame() {
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/play?room=${roomId}` : '';
 
-  // ── SCREENS ───────────────────────────────────────────────────────────────────
+  // ── SCREENS ──────────────────────────────────────────────────────────────────
 
-  if (phase === 'loading') {
-    return <Screen><p className="text-gray-400 animate-pulse">Loading...</p></Screen>;
-  }
+  if (phase === 'loading') return <Screen><p className="text-gray-400 animate-pulse text-lg">Loading...</p></Screen>;
 
-  if (phase === 'create') {
-    return (
-      <Screen>
-        <div className="bg-gray-800 rounded-2xl p-10 w-full max-w-md text-center">
-          <div className="text-5xl mb-4">🌐</div>
-          <h1 className="text-3xl font-bold text-white mb-2">Create Room</h1>
-          <p className="text-gray-400 mb-8">Pick your color, then share the link with a friend</p>
-
-          <p className="text-gray-400 text-sm mb-3">I want to play as:</p>
-          <div className="flex gap-3 justify-center mb-8">
-            {(['white', 'black'] as Color[]).map(c => (
-              <button key={c} onClick={() => setPickedColor(c)}
-                className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all border-2 ${
-                  pickedColor === c
-                    ? 'border-indigo-500 bg-indigo-600 text-white'
-                    : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-400'
-                }`}>
-                {c === 'white' ? '♔ White' : '♚ Black'}
-              </button>
-            ))}
-          </div>
-
-          <button onClick={createRoom}
-            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-lg transition-colors">
-            Create Room & Get Link
-          </button>
-          <Link href="/game" className="block mt-4 text-gray-500 hover:text-gray-300 text-sm">← Back</Link>
-        </div>
-      </Screen>
-    );
-  }
-
-  if (phase === 'waiting') {
-    return (
-      <Screen>
-        <div className="bg-gray-800 rounded-2xl p-10 w-full max-w-md text-center">
-          <div className="text-5xl mb-4 animate-pulse">⏳</div>
-          <h1 className="text-2xl font-bold text-white mb-1">Waiting for opponent</h1>
-          <p className="text-gray-400 mb-2">You are playing as <span className="text-white font-bold">{myColor === 'white' ? '♔ White' : '♚ Black'}</span></p>
-          <p className="text-gray-500 text-sm mb-6">Share this link with your friend:</p>
-
-          <div className="flex gap-2 mb-6">
-            <input readOnly value={shareUrl}
-              className="flex-1 bg-gray-700 text-white text-sm px-3 py-3 rounded-xl outline-none" />
-            <button onClick={copyLink}
-              className={`px-5 py-3 rounded-xl font-semibold text-sm transition-colors ${copied ? 'bg-green-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
-              {copied ? '✓' : 'Copy'}
+  if (phase === 'create') return (
+    <Screen>
+      <div className="bg-gray-800 rounded-2xl p-10 w-full max-w-md text-center">
+        <div className="text-5xl mb-4">🌐</div>
+        <h1 className="text-3xl font-bold text-white mb-2">Create Room</h1>
+        <p className="text-gray-400 mb-8">Pick your color, then share the link with a friend</p>
+        <p className="text-gray-400 text-sm mb-3">I want to play as:</p>
+        <div className="flex gap-3 justify-center mb-8">
+          {(['white', 'black'] as Color[]).map(c => (
+            <button key={c} onClick={() => setPickedColor(c)}
+              className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all border-2 ${
+                pickedColor === c ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-400'
+              }`}>
+              {c === 'white' ? '♔ White' : '♚ Black'}
             </button>
-          </div>
-
-          <div className="bg-gray-700 rounded-xl p-3 mb-6">
-            <p className="text-gray-400 text-xs mb-1">Room code</p>
-            <p className="text-white font-mono font-bold text-xl tracking-widest">{roomId}</p>
-          </div>
-
-          <p className="text-gray-600 text-xs">Page updates automatically when friend joins</p>
-          <Link href="/game" className="block mt-4 text-gray-500 hover:text-gray-300 text-sm">← Cancel</Link>
+          ))}
         </div>
-      </Screen>
-    );
-  }
+        <button onClick={createRoom} className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-lg transition-colors">
+          Create Room & Get Link
+        </button>
+        <Link href="/game" className="block mt-4 text-gray-500 hover:text-gray-300 text-sm">← Back</Link>
+      </div>
+    </Screen>
+  );
+
+  if (phase === 'waiting') return (
+    <Screen>
+      <div className="bg-gray-800 rounded-2xl p-10 w-full max-w-md text-center">
+        <div className="text-5xl mb-4 animate-pulse">⏳</div>
+        <h1 className="text-2xl font-bold text-white mb-1">Waiting for opponent</h1>
+        <p className="text-gray-400 mb-6">You are <span className="text-white font-bold">{myColor === 'white' ? '♔ White' : '♚ Black'}</span></p>
+        <div className="flex gap-2 mb-4">
+          <input readOnly value={shareUrl} className="flex-1 bg-gray-700 text-white text-sm px-3 py-3 rounded-xl outline-none" />
+          <button onClick={copyLink}
+            className={`px-5 py-3 rounded-xl font-semibold text-sm transition-colors ${copied ? 'bg-green-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}>
+            {copied ? '✓' : 'Copy'}
+          </button>
+        </div>
+        <div className="bg-gray-700 rounded-xl p-3 mb-4">
+          <p className="text-gray-400 text-xs mb-1">Room code</p>
+          <p className="text-white font-mono font-bold text-xl tracking-widest">{roomId}</p>
+        </div>
+        <p className="text-gray-600 text-xs">Page updates automatically when friend joins</p>
+        <Link href="/game" className="block mt-4 text-gray-500 hover:text-gray-300 text-sm">← Cancel</Link>
+      </div>
+    </Screen>
+  );
 
   if (phase === 'join') {
     const opponentColor: Color = myColor === 'white' ? 'black' : 'white';
@@ -304,44 +280,35 @@ function MultiplayerGame() {
           <div className="text-5xl mb-4">🤝</div>
           <h1 className="text-2xl font-bold text-white mb-1">You're invited!</h1>
           <p className="text-gray-400 mb-6">Room <span className="text-white font-mono font-bold">{roomId}</span></p>
-
           <div className="flex gap-3 mb-8">
             <div className="flex-1 bg-gray-700 rounded-xl p-4">
               <p className="text-gray-400 text-xs mb-1">Opponent</p>
-              <p className="text-white font-bold text-lg">{opponentColor === 'white' ? '♔ White' : '♚ Black'}</p>
+              <p className="text-white font-bold text-xl">{opponentColor === 'white' ? '♔ White' : '♚ Black'}</p>
             </div>
             <div className="flex-1 bg-indigo-600 rounded-xl p-4">
               <p className="text-indigo-200 text-xs mb-1">You</p>
-              <p className="text-white font-bold text-lg">{myColor === 'white' ? '♔ White' : '♚ Black'}</p>
+              <p className="text-white font-bold text-xl">{myColor === 'white' ? '♔ White' : '♚ Black'}</p>
             </div>
           </div>
-
-          <button onClick={joinRoom}
-            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-lg transition-colors">
-            Join Game as {myColor === 'white' ? '♔ White' : '♚ Black'}
+          <button onClick={joinRoom} className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-lg transition-colors">
+            Join as {myColor === 'white' ? '♔ White' : '♚ Black'}
           </button>
-          <p className="text-gray-600 text-xs mt-4">Your color is assigned automatically</p>
         </div>
       </Screen>
     );
   }
 
-  if (phase === 'full') {
-    return (
-      <Screen>
-        <div className="bg-gray-800 rounded-2xl p-10 w-full max-w-md text-center">
-          <div className="text-5xl mb-4">🚫</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Room is full</h1>
-          <p className="text-gray-400 mb-6">This game already has two players.</p>
-          <Link href="/play" className="block py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl">
-            Create New Room
-          </Link>
-        </div>
-      </Screen>
-    );
-  }
+  if (phase === 'full') return (
+    <Screen>
+      <div className="bg-gray-800 rounded-2xl p-8 w-full max-w-sm text-center">
+        <div className="text-5xl mb-4">🚫</div>
+        <h1 className="text-xl font-bold text-white mb-2">Room is full</h1>
+        <Link href="/play" className="block mt-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl">Create New Room</Link>
+      </div>
+    </Screen>
+  );
 
-  // ── GAME SCREEN ───────────────────────────────────────────────────────────────
+  // ── GAME ─────────────────────────────────────────────────────────────────────
   const status = gameOver ? gameResult : getGameStatus(game, myColor);
 
   return (
@@ -351,17 +318,14 @@ function MultiplayerGame() {
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-10 text-center max-w-sm w-full">
             <div className="text-5xl mb-4">🏁</div>
             <h2 className="text-2xl font-bold text-white mb-2">{gameResult}</h2>
-            <p className="text-gray-400 mb-6">{moveHistory.length} moves played</p>
-            <Link href="/game" className="block py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl">
-              Back to Lobby
-            </Link>
+            <p className="text-gray-400 mb-6">{moveHistory.length} moves</p>
+            <Link href="/game" className="block py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl">Back to Lobby</Link>
           </div>
         </div>
       )}
 
       <div className="flex flex-col lg:flex-row gap-6 w-full max-w-5xl">
         <div className="flex flex-col items-center gap-3 flex-1">
-          {/* Opponent */}
           <div className="flex items-center gap-3 bg-gray-800 rounded-xl px-4 py-2 w-full max-w-[560px]">
             <span className="text-2xl">👤</span>
             <div className="flex-1">
@@ -386,7 +350,6 @@ function MultiplayerGame() {
             />
           </div>
 
-          {/* Me */}
           <div className="flex items-center gap-3 bg-gray-800 rounded-xl px-4 py-2 w-full max-w-[560px]">
             <span className="text-2xl">👤</span>
             <div className="flex-1">
@@ -397,7 +360,6 @@ function MultiplayerGame() {
           </div>
         </div>
 
-        {/* Sidebar */}
         <div className="w-full lg:w-64 flex flex-col gap-4">
           <div className="bg-gray-800 rounded-xl p-4">
             <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Status</p>
@@ -432,11 +394,7 @@ function MultiplayerGame() {
 }
 
 function Screen({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
-      {children}
-    </main>
-  );
+  return <main className="min-h-screen bg-gray-900 flex items-center justify-center px-4">{children}</main>;
 }
 
 export default function PlayPage() {
