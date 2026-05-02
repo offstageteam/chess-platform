@@ -57,7 +57,7 @@ export default function ChessGame() {
 
     if (mode === 'ai' && !gameCopy.isGameOver() && gameCopy.turn() === 'b') {
       setAiThinking(true);
-      setTimeout(() => getMove(gameCopy.fen(), difficulty, handleAIMove), 100);
+      setTimeout(() => getMove(gameCopy.fen(), 800, handleAIMove), 100);
     }
   }
 

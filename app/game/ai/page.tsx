@@ -13,11 +13,12 @@ type DropArgs = { piece: unknown; sourceSquare: string; targetSquare: string | n
 type SquareArgs = { piece: { pieceType: string } | null; square: string };
 type DragArgs = { isSparePiece: boolean; piece: unknown; square: string | null };
 
+// movetime in ms — how long AI thinks per move
 const DIFFICULTIES = [
-  { label: 'Easy', depth: 3 },
-  { label: 'Medium', depth: 8 },
-  { label: 'Hard', depth: 14 },
-  { label: 'Master', depth: 20 },
+  { label: 'Easy', movetime: 200 },
+  { label: 'Medium', movetime: 800 },
+  { label: 'Hard', movetime: 2000 },
+  { label: 'Master', movetime: 5000 },
 ];
 
 const TIME_OPTIONS = [
@@ -51,25 +52,18 @@ export default function AIGame() {
   const gameRef = useRef(game);
   gameRef.current = game;
 
-  // Timer
+  // Timer — only counts down when it's the human's (white) turn
   useEffect(() => {
     if (!started || gameOver || timeControl === 0) return;
+    if (gameRef.current.turn() !== 'w') return; // AI's turn — don't tick
     const id = setInterval(() => {
-      const turn = gameRef.current.turn();
-      if (turn === 'w') {
-        setWhiteTime(t => {
-          if (t <= 1) { clearInterval(id); endGame('Time out — Black wins! ⏰'); return 0; }
-          return t - 1;
-        });
-      } else {
-        setBlackTime(t => {
-          if (t <= 1) { clearInterval(id); endGame('Time out — White wins! ⏰'); return 0; }
-          return t - 1;
-        });
-      }
+      setWhiteTime(t => {
+        if (t <= 1) { clearInterval(id); endGame('Time out — You lost! ⏰'); return 0; }
+        return t - 1;
+      });
     }, 1000);
     return () => clearInterval(id);
-  }, [game, started, gameOver, timeControl]); // restarts on each move (turn changes)
+  }, [game, started, gameOver, timeControl]);
 
   function endGame(result: string) {
     setGameOver(true);
@@ -85,7 +79,7 @@ export default function AIGame() {
 
   const triggerAI = useCallback((fen: string) => {
     setAiThinking(true);
-    getMove(fen, DIFFICULTIES[difficulty].depth, (bestMove) => {
+    getMove(fen, DIFFICULTIES[difficulty].movetime, (bestMove) => {
       setGame(prev => {
         const g = new Chess(prev.fen());
         try {
@@ -250,11 +244,6 @@ export default function AIGame() {
               <p className="text-white text-sm font-semibold">Stockfish · {DIFFICULTIES[difficulty].label}</p>
               <p className="text-gray-400 text-xs">Black</p>
             </div>
-            {timeControl > 0 && (
-              <span className={`font-mono font-bold text-lg ${blackLow ? 'text-red-400 animate-pulse' : game.turn() === 'b' && !gameOver ? 'text-white' : 'text-gray-500'}`}>
-                {formatTime(blackTime)}
-              </span>
-            )}
             {aiThinking && <span className="text-indigo-400 text-xs animate-pulse">Thinking...</span>}
           </div>
 
