@@ -18,6 +18,8 @@ export default function Navbar() {
       if (session?.user) {
         supabase.from('profiles').select('username').eq('id', session.user.id).single()
           .then(({ data }) => setUsername(data?.username ?? ''));
+      } else {
+        setUsername('');
       }
     });
   }, []);
@@ -28,31 +30,25 @@ export default function Navbar() {
         <Link href="/" className="text-xl font-bold text-white">♟ ChessMate</Link>
 
         <div className="flex items-center gap-4">
-          <Link href="/play" className="text-gray-400 hover:text-white text-sm transition-colors">
-            Multiplayer
+          <Link href="/game" className="text-gray-400 hover:text-white text-sm transition-colors">
+            Play
           </Link>
           <Link href="/leaderboard" className="text-gray-400 hover:text-white text-sm transition-colors">
             Leaderboard
           </Link>
           {user ? (
             <div className="flex items-center gap-3">
-              <span className="text-gray-300 text-sm">👤 {username || user.email}</span>
-              <button
-                onClick={() => supabase.auth.signOut()}
-                className="text-sm text-gray-400 hover:text-white transition-colors"
-              >
+              <span className="text-gray-300 text-sm hidden sm:block">👤 {username || user.email}</span>
+              <button onClick={() => supabase.auth.signOut()}
+                className="text-sm text-gray-400 hover:text-white transition-colors">
                 Sign out
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowAuth(true)}
-                className="px-4 py-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold transition-colors"
-              >
-                Sign In
-              </button>
-            </div>
+            <button onClick={() => setShowAuth(true)}
+              className="px-4 py-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold transition-colors">
+              Sign In
+            </button>
           )}
         </div>
       </nav>

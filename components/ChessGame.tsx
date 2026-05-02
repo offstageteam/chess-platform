@@ -48,7 +48,7 @@ export default function ChessGame() {
     setAiThinking(false);
   }, [updateStatus]);
 
-  const { getMove } = useStockfish(handleAIMove);
+  const { getMove } = useStockfish();
 
   function makeMove(gameCopy: Chess, san: string) {
     setGame(gameCopy);
@@ -57,7 +57,7 @@ export default function ChessGame() {
 
     if (mode === 'ai' && !gameCopy.isGameOver() && gameCopy.turn() === 'b') {
       setAiThinking(true);
-      setTimeout(() => getMove(gameCopy.fen(), difficulty), 100);
+      setTimeout(() => getMove(gameCopy.fen(), difficulty, handleAIMove), 100);
     }
   }
 
