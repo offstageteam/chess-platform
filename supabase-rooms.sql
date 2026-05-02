@@ -1,7 +1,9 @@
--- Rooms table for multiplayer
-create table if not exists rooms (
+-- Drop and recreate rooms table with proper structure
+drop table if exists rooms;
+
+create table rooms (
   id text primary key,
-  white_player text not null,
+  white_player text,
   black_player text,
   status text default 'waiting' check (status in ('waiting', 'playing', 'finished')),
   created_at timestamptz default now()
