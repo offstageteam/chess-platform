@@ -28,6 +28,13 @@ const TIME_OPTIONS = [
   { label: '∞', value: 0 },
 ];
 
+const THEMES = [
+  { id: 'classic', label: 'Classic', dark: '#4a5568', light: '#e2e8f0', pro: false },
+  { id: 'forest',  label: 'Forest',  dark: '#2d6a4f', light: '#d8f3dc', pro: false },
+  { id: 'marble',  label: 'Marble',  dark: '#6b4c2a', light: '#f5deb3', pro: true  },
+  { id: 'night',   label: 'Night',   dark: '#1a1a2e', light: '#c0c0d0', pro: true  },
+];
+
 function formatTime(secs: number) {
   if (secs <= 0) return '0:00';
   const m = Math.floor(secs / 60);
@@ -39,6 +46,8 @@ export default function AIGame() {
   const [game, setGame] = useState(new Chess());
   const [difficulty, setDifficulty] = useState(0);
   const [timeControl, setTimeControl] = useState(5); // minutes, 0 = unlimited
+  const [themeId, setThemeId] = useState('classic');
+  const [showProThemeModal, setShowProThemeModal] = useState(false);
   const [started, setStarted] = useState(false);
   const [aiThinking, setAiThinking] = useState(false);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
@@ -191,7 +200,7 @@ export default function AIGame() {
         </div>
 
         <p className="text-gray-400 text-sm mb-2">Time control</p>
-        <div className="grid grid-cols-4 gap-2 mb-8">
+        <div className="grid grid-cols-4 gap-2 mb-6">
           {TIME_OPTIONS.map(t => (
             <button key={t.label} onClick={() => setTimeControl(t.value)}
               className={`py-3 rounded-xl font-semibold text-sm transition-colors ${timeControl === t.value ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
@@ -199,6 +208,29 @@ export default function AIGame() {
             </button>
           ))}
         </div>
+
+        <p className="text-gray-400 text-sm mb-2">Board theme</p>
+        <div className="grid grid-cols-4 gap-2 mb-8">
+          {THEMES.map(t => (
+            <button key={t.id}
+              onClick={() => t.pro ? setShowProThemeModal(true) : setThemeId(t.id)}
+              className={`py-3 rounded-xl font-semibold text-sm transition-colors relative ${themeId === t.id ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+              {t.label}
+              {t.pro && <span className="absolute -top-1.5 -right-1.5 text-xs bg-yellow-500 text-black font-bold px-1 rounded-full">PRO</span>}
+            </button>
+          ))}
+        </div>
+
+        {showProThemeModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowProThemeModal(false)}>
+            <div className="bg-gray-900 border border-yellow-600 rounded-2xl p-6 max-w-xs w-full text-center" onClick={e => e.stopPropagation()}>
+              <div className="text-4xl mb-3">🔒</div>
+              <h3 className="text-white font-bold text-lg mb-1">Pro Theme</h3>
+              <p className="text-gray-400 text-sm mb-4">Exclusive board themes are part of the Pro plan at <span className="text-yellow-400 font-bold">990 KZT/month</span>.</p>
+              <button onClick={() => setShowProThemeModal(false)} className="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl text-sm font-semibold">Got it</button>
+            </div>
+          </div>
+        )}
 
         <button onClick={() => {
           const secs = timeControl * 60;
@@ -217,6 +249,7 @@ export default function AIGame() {
   const status = aiThinking ? '🤖 AI is thinking...' : getStatus(game);
   const whiteLow = timeControl > 0 && whiteTime <= 30;
   const blackLow = timeControl > 0 && blackTime <= 30;
+  const activeTheme = THEMES.find(t => t.id === themeId) ?? THEMES[0];
 
   return (
     <main className="min-h-screen bg-gray-900 flex flex-col items-center py-8 px-4 gap-4">
@@ -257,8 +290,8 @@ export default function AIGame() {
                 onPieceDrag: onPieceDrag,
                 squareStyles: legalMoves,
                 boardStyle: { borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' },
-                darkSquareStyle: { backgroundColor: '#4a5568' },
-                lightSquareStyle: { backgroundColor: '#e2e8f0' },
+                darkSquareStyle: { backgroundColor: activeTheme.dark },
+                lightSquareStyle: { backgroundColor: activeTheme.light },
                 allowDragging: !aiThinking && !gameOver && game.turn() === 'w',
               }}
             />

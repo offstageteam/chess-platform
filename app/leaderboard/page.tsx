@@ -34,8 +34,25 @@ export default function LeaderboardPage() {
       <h1 className="text-3xl font-bold text-white mb-2">🏆 Leaderboard</h1>
       <p className="text-gray-400 mb-6">Top players ranked by rating</p>
 
+      {/* City quick-select */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {['', 'Almaty', 'Astana', 'Shymkent'].map(city => (
+          <button
+            key={city}
+            onClick={() => setCityFilter(city)}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+              cityFilter === city
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            {city === '' ? '🌍 Global' : `📍 ${city}`}
+          </button>
+        ))}
+      </div>
+
       <input
-        placeholder="Filter by city (e.g. Almaty)"
+        placeholder="Or type any city…"
         value={cityFilter}
         onChange={e => setCityFilter(e.target.value)}
         className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 mb-6 outline-none focus:ring-2 focus:ring-indigo-500"
