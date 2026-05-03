@@ -61,15 +61,22 @@ export default function AIGame() {
   const gameRef = useRef(game);
   gameRef.current = game;
 
-  // Timer — only counts down when it's the human's (white) turn
+  // Timer — ticks for whoever's turn it is
   useEffect(() => {
     if (!started || gameOver || timeControl === 0) return;
-    if (gameRef.current.turn() !== 'w') return; // AI's turn — don't tick
+    const isWhiteTurn = gameRef.current.turn() === 'w';
     const id = setInterval(() => {
-      setWhiteTime(t => {
-        if (t <= 1) { clearInterval(id); endGame('Time out — You lost! ⏰'); return 0; }
-        return t - 1;
-      });
+      if (isWhiteTurn) {
+        setWhiteTime(t => {
+          if (t <= 1) { clearInterval(id); endGame('Time out — You lost! ⏰'); return 0; }
+          return t - 1;
+        });
+      } else {
+        setBlackTime(t => {
+          if (t <= 1) { clearInterval(id); endGame('Time out — AI ran out of time! You win! ⏰'); return 0; }
+          return t - 1;
+        });
+      }
     }, 1000);
     return () => clearInterval(id);
   }, [game, started, gameOver, timeControl]);
@@ -290,7 +297,12 @@ export default function AIGame() {
               <p className="text-white text-sm font-semibold">Stockfish · {DIFFICULTIES[difficulty].label}</p>
               <p className="text-gray-400 text-xs">Black</p>
             </div>
-            {aiThinking && <span className="text-indigo-400 text-xs animate-pulse">Thinking...</span>}
+            {aiThinking && <span className="text-indigo-400 text-xs animate-pulse mr-2">Thinking...</span>}
+            {timeControl > 0 && (
+              <span className={`font-mono font-bold text-lg ${blackLow ? 'text-red-400 animate-pulse' : game.turn() === 'b' && !gameOver ? 'text-white' : 'text-gray-500'}`}>
+                {formatTime(blackTime)}
+              </span>
+            )}
           </div>
 
           {/* Board */}
