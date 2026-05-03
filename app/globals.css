@@ -1,7 +1,47 @@
 @import "tailwindcss";
 
+@theme {
+  /* ── Surfaces: rosewood board room ──────────────────────────────────────── */
+  /* Cold steel gray → warm walnut. bg-gray-900 now feels like a well-oiled   */
+  /* board surface, not a tech startup template.                               */
+  --color-gray-950: #080604;
+  --color-gray-900: #0e0c0a;
+  --color-gray-800: #181410;
+  --color-gray-700: #252018;
+  --color-gray-600: #3a3228;
+  --color-gray-500: #564d3f;
+  --color-gray-400: #9c9080;
+  --color-gray-300: #c8bfb0;
+  --color-gray-200: #ddd5c5;
+  --color-gray-100: #ede8dc;
+  --color-gray-50:  #f5f0e8;
+
+  /* ── Accent: tournament brass ────────────────────────────────────────────── */
+  /* Cold indigo → brass. The color of a tournament clock. A chess trophy.    */
+  /* Every button, every badge, every highlight — one intentional material.   */
+  --color-indigo-950: #130e04;
+  --color-indigo-900: #1f1508;
+  --color-indigo-800: #2e1f0a;
+  --color-indigo-700: #7a5a14;
+  --color-indigo-600: #c9962a;
+  --color-indigo-500: #d4a534;
+  --color-indigo-400: #e0b844;
+  --color-indigo-300: #f0c85a;
+  --color-indigo-200: #f8dc80;
+  --color-indigo-100: #fdf0c0;
+  --color-indigo-50:  #fffae8;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
 body {
-  background: #111827;
-  color: white;
+  background: #0e0c0a;
+  color: #f0ead8;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Quiet border system ───────────────────────────────────────────────────── */
+/* Borders whisper. They should structure, not decorate.                       */
+* {
+  --tw-border-opacity: 1;
 }

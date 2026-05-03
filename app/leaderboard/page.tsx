@@ -65,9 +65,9 @@ export default function LeaderboardPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {players.map((p, i) => (
-            <div key={p.id} className="flex items-center gap-4 bg-gray-800 rounded-xl px-5 py-4">
-              <span className={`text-xl font-bold w-8 ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-400' : 'text-gray-600'}`}>
-                {i + 1}
+            <div key={p.id} className={`flex items-center gap-4 rounded-xl px-5 py-4 border ${i === 0 ? 'bg-gray-800 border-indigo-700' : 'bg-gray-800 border-gray-700'}`}>
+              <span className={`text-sm font-bold w-7 tabular-nums text-right ${i === 0 ? 'text-indigo-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-gray-400' : 'text-gray-600'}`}>
+                {i === 0 ? '♛' : i + 1}
               </span>
               <div className="flex-1">
                 <p className="text-white font-semibold">{p.username}</p>
