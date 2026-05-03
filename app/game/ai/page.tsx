@@ -261,8 +261,21 @@ export default function AIGame() {
             <h2 className="text-2xl font-bold text-white mb-2">{gameResult}</h2>
             <p className="text-gray-400 mb-6">{moveHistory.length} moves played</p>
             <div className="flex flex-col gap-3">
-              <button onClick={resetGame} className="py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl">Play Again</button>
-              <Link href="/game" className="py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl text-center">Back to Lobby</Link>
+              {moveHistory.length >= 6 && (
+                <button
+                  onClick={() => {
+                    setGameOver(false);
+                    setTimeout(() => {
+                      document.getElementById('ai-coach')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }}
+                  className="py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-2"
+                >
+                  ♟ Analyze My Game
+                </button>
+              )}
+              <button onClick={resetGame} className="py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl">Play Again</button>
+              <Link href="/game" className="py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 font-semibold rounded-xl text-center text-sm">Back to Lobby</Link>
             </div>
           </div>
         </div>
@@ -347,7 +360,9 @@ export default function AIGame() {
         </div>
       </div>
 
-      <AICoach moves={moveHistory} isGameOver={game.isGameOver() || gameOver} />
+      <div id="ai-coach" className="w-full max-w-5xl">
+        <AICoach moves={moveHistory} isGameOver={game.isGameOver() || gameOver} />
+      </div>
     </main>
   );
 }
