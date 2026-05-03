@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { LangProvider } from "@/context/LangContext";
 
 export const metadata: Metadata = {
   title: "ChessKZ — Play. Compete. Improve.",
@@ -11,8 +12,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-gray-900">
-        <Navbar />
-        {children}
+        <LangProvider>
+          <Navbar />
+          {children}
+        </LangProvider>
       </body>
     </html>
   );

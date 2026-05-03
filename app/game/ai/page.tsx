@@ -6,6 +6,7 @@ import { Chess, Square } from 'chess.js';
 import { useStockfish } from '@/hooks/useStockfish';
 import AICoach from '@/components/AICoach';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 const Chessboard = dynamic(() => import('react-chessboard').then(m => m.Chessboard), { ssr: false });
 
@@ -60,6 +61,15 @@ export default function AIGame() {
   const { getMove } = useStockfish();
   const gameRef = useRef(game);
   gameRef.current = game;
+  const userIdRef = useRef<string | null>(null);
+  const moveHistoryRef = useRef<string[]>([]);
+  moveHistoryRef.current = moveHistory;
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      userIdRef.current = data.user?.id ?? null;
+    });
+  }, []);
 
   // Timer — ticks for whoever's turn it is
   useEffect(() => {
@@ -84,6 +94,26 @@ export default function AIGame() {
   function endGame(result: string) {
     setGameOver(true);
     setGameResult(result);
+    // Save to Supabase (fire-and-forget, only if user is logged in)
+    const uid = userIdRef.current;
+    if (uid) {
+      const winner =
+        result.includes('White') || result.includes('You win') ? 'white' :
+        result.includes('Black') || result.includes('You lost') || result.includes('forfeited') ? 'black' :
+        'draw';
+      const moves = moveHistoryRef.current;
+      // Build simple PGN
+      const pgn = moves.map((san, i) =>
+        i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ${san}` : san
+      ).join(' ');
+      supabase.from('games').insert({
+        white_id: uid,
+        winner,
+        moves,
+        pgn,
+        mode: 'ai',
+      }).then(() => {/* silent */});
+    }
   }
 
   function getStatus(g: Chess) {
